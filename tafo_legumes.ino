@@ -3,6 +3,12 @@
 #include "Adafruit_MPR121.h"
 #include <Adafruit_NeoPixel.h>
 
+#ifdef ARDUINO_AVR_UNO
+#define HAS_MPR121 0
+#else
+#define HAS_MPR121 1
+#endif
+
 // Which pin on the Arduino is connected to the NeoPixels?
 #define PIXELS1_PIN            23
 #define PIXELS2_PIN            22
@@ -17,7 +23,7 @@
 Adafruit_NeoPixel pixels1 = Adafruit_NeoPixel(NUMPIXELS, PIXELS1_PIN, NEO_GRBW + NEO_KHZ800);
 Adafruit_NeoPixel pixels2 = Adafruit_NeoPixel(NUMPIXELS, PIXELS2_PIN, NEO_GRBW + NEO_KHZ800);
 
-byte neopix_gamma[] = {
+const byte neopix_gamma[] = {
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
     1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,
@@ -86,50 +92,54 @@ struct {
   }
 };
 
+bool configDirty = false;
+uint32_t lastConfigSave = 0;
+
 uint32_t saturation[NUMELECTRODES] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 void loadConfig() {
   uint32_t version;
   EEPROM.get(0, version);
   if (version == VERSION) {
-    Serial.println("Found config in EEPROM, loading it");
+    Serial.println(F("Found config in EEPROM, loading it"));
     EEPROM.get(0, config);
   }
 }
 
 void saveConfig() {
+  Serial.println(F("INFO Saving config"));
   EEPROM.put(0, config);
+  configDirty = false;
+  lastConfigSave = millis();
 }
 
-#define HAS_MPR121 1
-
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   while (!Serial) { // needed to keep leonardo/micro from starting too fast!
     delay(10);
   }
 
-  Serial.println("Starting up...");
+  Serial.println(F("Starting up..."));
 
   loadConfig();
 
 #if HAS_MPR121
-  Serial.println("Looking for MPR121");
+  Serial.println(F("Looking for MPR121"));
 
   // Default address is 0x5A, if tied to 3.3V its 0x5B
   // If tied to SDA its 0x5C and if SCL then 0x5D
   if (!cap.begin(0x5A)) {
-    Serial.println("MPR121 not found, check wiring?");
+    Serial.println(F("MPR121 not found, check wiring?"));
     while (1);
   }
-  Serial.println("MPR121 found!");
+  Serial.println(F("MPR121 found!"));
 #endif
 
   pixels1.begin();
   pixels2.begin();
 
-  Serial.println("Ready");
+  Serial.println(F("Ready"));
 }
 
 void change(int electrodeIndex, bool direction) {
@@ -173,85 +183,136 @@ void show(Adafruit_NeoPixel& pixels, uint32_t *targetColors) {
   pixels.show();
 }
 
+#define CMDBUFFER_SIZE 256
+#define CMDMAXWORDS 16
+char cmdbuffer[CMDBUFFER_SIZE];
+int cmdbuffer_index = 0;
+char *cmdwords[CMDMAXWORDS];
+int cmdwords_count = 0;
+
 void processSerialInput() {
   // if there's any serial available, read it:
   while (Serial.available() > 0) {
-    char cmd = Serial.read();
-
-    switch(cmd) {
-      case 'Q': {
-        Serial.print("OK ");
-        Serial.print(NUMLIGHTS);
-        Serial.print(" ");
-        Serial.println(NUMELECTRODES);
-        for(int numLight = 0; numLight < NUMLIGHTS; numLight++) {
-          for(int numElectrode = 0; numElectrode < NUMELECTRODES; numElectrode++) {
-            Serial.print(numLight);
-            Serial.print(" ");
-
-            Serial.print(numElectrode);
-            Serial.print(" ");
-
-            uint32_t targetColor = config.targetColors[numLight][numElectrode];
-
-            uint32_t w = (uint8_t)(targetColor >> 24),
-                     r = (uint8_t)(targetColor >> 16),
-                     g = (uint8_t)(targetColor >>  8),
-                     b = (uint8_t)targetColor;
-
-            Serial.print(r);
-            Serial.print(" ");
-            Serial.print(g);
-            Serial.print(" ");
-            Serial.print(b);
-            Serial.print(" ");
-            Serial.println(w);
+    if(cmdbuffer_index >= CMDBUFFER_SIZE) {
+      Serial.println(F("ERR Command buffer overflow"));
+      cmdbuffer_index = 0;
+    }
+    char c = Serial.read();
+    switch (c) {
+      case '\r':
+        break;
+      case '\n':
+        if (cmdbuffer_index == 0) {
+          break;
+        }
+        cmdbuffer[cmdbuffer_index] = '\0';
+        cmdwords[0] = cmdbuffer;
+        cmdwords_count = 1;
+        for(int i = 0; i < cmdbuffer_index && cmdwords_count < CMDMAXWORDS; i++) {
+          switch(cmdbuffer[i]) {
+            case ' ':
+              cmdbuffer[i] = '\0';
+              cmdwords[cmdwords_count++] = cmdbuffer + i + 1;
+            default:
+              break;
           }
         }
-        break;
-      }
-      case 'C': {
-        int numLight = Serial.parseInt();
-        int numElectrode = Serial.parseInt();
-        int red = Serial.parseInt();
-        int green = Serial.parseInt();
-        int blue = Serial.parseInt();
-        int white = Serial.parseInt();
-        if(numLight < 0 || numLight >= NUMLIGHTS) {
-          Serial.print("ERR invalid light ");
-          Serial.println(numLight);
-          break;
-        }
-        if(numElectrode < 0 || numElectrode >= NUMELECTRODES) {
-          Serial.print("ERR invalid electrode ");
-          Serial.println(numElectrode);
-          break;
-        }
-        Serial.print("OK Setting light ");
-        Serial.print(numLight);
-        Serial.print(" for electrode ");
-        Serial.print(numElectrode);
-        Serial.print(" to (");
-        Serial.print(red);
-        Serial.print(",");
-        Serial.print(green);
-        Serial.print(",");
-        Serial.print(blue);
-        Serial.print(",");
-        Serial.print(white);
-        Serial.println(")");
-        config.targetColors[numLight][numElectrode] = Adafruit_NeoPixel::Color(red, green, blue, white);
-        saveConfig();
-        break;
-      }
-      case '\r':
-      case '\n':
+
+        processCommand();
+        cmdbuffer_index = 0;
         break;
       default:
-        Serial.print("ERR Unknown command ");
-        Serial.println(cmd, 16);
+        cmdbuffer[cmdbuffer_index++] = c;
         break;
     }
+  }
+}
+
+void processCommand() {
+  Serial.print(F("ECHO"));
+  for(int i=0; i < cmdwords_count; i++) {
+    Serial.print(F(" "));
+    Serial.print(cmdwords[i]);
+  }
+  Serial.println(F(""));
+
+  switch(*cmdwords[0]) {
+    case 'Q': {
+      Serial.print(F("OK "));
+      Serial.print(NUMLIGHTS);
+      Serial.print(F(" "));
+      Serial.println(NUMELECTRODES);
+      for(int numLight = 0; numLight < NUMLIGHTS; numLight++) {
+        for(int numElectrode = 0; numElectrode < NUMELECTRODES; numElectrode++) {
+          Serial.print(numLight);
+          Serial.print(F(" "));
+
+          Serial.print(numElectrode);
+          Serial.print(F(" "));
+
+          uint32_t targetColor = config.targetColors[numLight][numElectrode];
+
+          uint32_t w = (uint8_t)(targetColor >> 24),
+                   r = (uint8_t)(targetColor >> 16),
+                   g = (uint8_t)(targetColor >>  8),
+                   b = (uint8_t)targetColor;
+
+          Serial.print(r);
+          Serial.print(F(" "));
+          Serial.print(g);
+          Serial.print(F(" "));
+          Serial.print(b);
+          Serial.print(F(" "));
+          Serial.println(w);
+        }
+      }
+      break;
+    }
+
+    case 'C': {
+      if(cmdwords_count != 7) {
+        Serial.println(F("ERR usage: C light electrode r g b w"));
+        break;
+      }
+
+      int numLight = atoi(cmdwords[1]);
+      int numElectrode = atoi(cmdwords[2]);
+      int red = atoi(cmdwords[3]);
+      int green = atoi(cmdwords[4]);
+      int blue = atoi(cmdwords[5]);
+      int white = atoi(cmdwords[6]);
+
+      if(numLight < 0 || numLight >= NUMLIGHTS) {
+        Serial.print(F("ERR invalid light "));
+        Serial.println(numLight);
+        break;
+      }
+      if(numElectrode < 0 || numElectrode >= NUMELECTRODES) {
+        Serial.print(F("ERR invalid electrode "));
+        Serial.println(numElectrode);
+        break;
+      }
+      Serial.print(F("OK Setting light "));
+      Serial.print(numLight);
+      Serial.print(F(" for electrode "));
+      Serial.print(numElectrode);
+      Serial.print(F(" to ("));
+      Serial.print(red);
+      Serial.print(F(","));
+      Serial.print(green);
+      Serial.print(F(","));
+      Serial.print(blue);
+      Serial.print(F(","));
+      Serial.print(white);
+      Serial.println(F(")"));
+      config.targetColors[numLight][numElectrode] = Adafruit_NeoPixel::Color(red, green, blue, white);
+      configDirty = true;
+      break;
+    }
+    default:
+      Serial.print("ERR Unknown command ");
+      Serial.println(cmdwords[0]);
+      break;
   }
 }
 
@@ -285,25 +346,30 @@ void loop() {
 
   processSerialInput();
 
+  if (configDirty && (millis() - lastConfigSave) > 1000) {
+    saveConfig();
+  }
+
+
   // reset our state
   lasttouched = currtouched;
 
   // comment out this line for detailed data from the sensor!
-  return;
-
+#if 0
   // debugging info, what
-  Serial.print("\t\t\t\t\t\t\t\t\t\t\t\t\t 0x"); Serial.println(cap.touched(), HEX);
-  Serial.print("Filt: ");
+  Serial.print(F("\t\t\t\t\t\t\t\t\t\t\t\t\t 0x")); Serial.println(cap.touched(), HEX);
+  Serial.print(F("Filt: "));
   for (uint8_t i=0; i<NUMELECTRODES; i++) {
-    Serial.print(cap.filteredData(i)); Serial.print("\t");
+    Serial.print(cap.filteredData(i)); Serial.print(F("\t"));
   }
   Serial.println();
-  Serial.print("Base: ");
+  Serial.print(F("Base: "));
   for (uint8_t i=0; i<NUMELECTRODES; i++) {
-    Serial.print(cap.baselineData(i)); Serial.print("\t");
+    Serial.print(cap.baselineData(i)); Serial.print(F("\t"));
   }
   Serial.println();
 
   // put a delay so it isn't overwhelming
   delay(100);
+#endif
 }

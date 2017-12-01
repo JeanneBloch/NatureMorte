@@ -11,7 +11,7 @@
 
 // Which pin on the Arduino is connected to the NeoPixels?
 #define PIXELS1_PIN            23
-#define PIXELS2_PIN            22
+#define PIXELS2_PIN            25
 
 // How many NeoPixels are attached to the Arduino?
 #define NUMPIXELS      8

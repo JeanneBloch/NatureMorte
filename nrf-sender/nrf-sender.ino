@@ -1,26 +1,11 @@
-
-/*
-* Getting Started example sketch for nRF24L01+ radios
-* This is a very basic example of how to send data from one node to another
-* Updated: Dec 2014 by TMRh20
-*/
-
 #include <SPI.h>
 #include "RF24.h"
 #include "printf.h"
 
-/****************** User Config ***************************/
-/***      Set this radio as radio number 0 or 1         ***/
-
-bool radioNumber = 0;
-
 RF24 radio(7,8);
 
-/**********************************************************/
 
 byte addresses[][6] = {"1Node", "2Node"};
-
-bool role = 1;
 
 void setup() {
   Serial.begin(115200);
@@ -50,5 +35,5 @@ void loop() {
     radio.txStandBy();
 
    // delay(1);
-} // Loop
+}
 

@@ -8,12 +8,13 @@ RF24 radio(7, 8);
 byte addresses[][6] = {"1Node", "2Node"};
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   printf_begin();
 
   radio.begin();
 
-  radio.setPALevel(RF24_PA_MIN);
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setDataRate(RF24_250KBPS);
   radio.setAutoAck(false);
   radio.setChannel(125);
   radio.printDetails();
@@ -25,15 +26,23 @@ void setup() {
 }
 
 void loop() {
+  digitalWrite(LED_BUILTIN, (millis() & 128) ? HIGH : LOW);
+  
   unsigned long start_time = micros();                             // Take the time, and send it.  This will block until complete
-  if (!radio.write( &start_time, sizeof(unsigned long) )) {
+  int sensorValue = analogRead(A0);
+  if (!radio.write( &sensorValue, sizeof(int) )) {
     Serial.println(F("failed"));
   }
+  
 
   //Serial.println(F("sent time"));
 
   radio.txStandBy();
-
-  // delay(1);
+#if DEBUG
+  Serial.print(sensorValue);
+  Serial.print(" ");
+  Serial.println(micros() - start_time);
+#endif
+  delay(50);
 }
 

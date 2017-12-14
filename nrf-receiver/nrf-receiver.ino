@@ -18,9 +18,8 @@ void setup() {
 
   radio.begin();
 
-  // Set the PA Level low to prevent power supply related issues since this is a
-  // getting_started sketch, and the likelihood of close proximity of the devices. RF24_PA_MAX is default.
-  radio.setPALevel(RF24_PA_MIN);
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setDataRate(RF24_250KBPS);
   radio.setAutoAck(false);
   radio.setChannel(125);
   radio.printDetails();
@@ -46,19 +45,20 @@ void loop() {
   static int sample_idx = 0;
   static long sample_total = 0;
   static int led = 0;
-  static unsigned long last_got_time = 0;
   
   if ( radio.available()) {
-    unsigned long got_time;
+    int got_sensor;
 
     int batch_size = 0;
 
     while (radio.available()) {                                   // While there is data ready
       batch_size++;
-      radio.read( &got_time, sizeof(unsigned long) );             // Get the payload
+      radio.read( &got_sensor, sizeof(got_sensor) );             // Get the payload
     }
 
     digitalWrite(LED, (millis() & 128) ? HIGH : LOW);
+
+    analogWrite(3, got_sensor / 4);
 
     long now = micros();
     long time_since_last = now - last_micros;
@@ -68,20 +68,19 @@ void loop() {
     samples[sample_idx] = time_since_last;
     sample_idx = (sample_idx + 1) & (NSAMPLES - 1);
 
-    Serial.print(10000);
+    Serial.print(1024);
     Serial.print(" ");
 
-    Serial.print(got_time - last_got_time);
+    Serial.print(got_sensor);
     Serial.print(" ");
-    last_got_time = got_time;
 
-    Serial.print(time_since_last);
-    Serial.print(" ");
+    /*Serial.print(time_since_last);
+    Serial.print(" ");*/
     
     Serial.print(batch_size * 100);
-    Serial.print(" ");
+    Serial.println(" ");
 
-    Serial.println(sample_total / NSAMPLES);
+    //Serial.println(sample_total / NSAMPLES);
   }
 }
 

@@ -10,11 +10,18 @@ Println console;
 ArrayList<ArrayList<ColorPicker>> cps = new ArrayList<ArrayList<ColorPicker>>();
 Serial arduinoPort;
 
+Tab lightsTab, sensorsTab;
+
 void setup() {
   size(1240, 600);
   noStroke();
   cp5 = new ControlP5(this);
   cp5.setAutoDraw(false);
+
+  lightsTab = cp5.addTab("lights").setActive(true);
+  sensorsTab = cp5.addTab("sensors");
+  cp5.getTab("default").hide();
+
   for(int electrode=0; electrode<12; electrode++) {
     float x = 620 * (electrode / 6);
     float y = 20 + 80 * (electrode % 6);
@@ -23,6 +30,7 @@ void setup() {
                       .setPosition(x + 10, y+15)
                       .setColorValue(0xffffff00)
                       .setFont(createFont("Monaco",20))
+                      .moveTo("lights");
                       ;
 
     
@@ -33,7 +41,7 @@ void setup() {
               .setPosition(x + 50 + 300 * light, y)
               .setWidth(100)
               .setColorValue(color(255, 128, 0, 128))
-              ;
+              .moveTo("lights");
       row.add(cp);
     }
   }
@@ -45,7 +53,8 @@ void setup() {
                   .setLineHeight(14)
                   .setColor(color(200))
                   .setColorBackground(color(0, 100))
-                  .setColorForeground(color(255, 100));
+                  .setColorForeground(color(255, 100))
+                  .moveTo("global");
   ;
 
   console = cp5.addConsole(consoleTextarea);
@@ -75,19 +84,21 @@ void draw() {
   
   cp5.draw();
 
-  for(int electrode=0;electrode<cps.size();electrode++) {
-    ArrayList<ColorPicker> row = cps.get(electrode);
-    for(int light=0; light<row.size(); light++) {
-      ColorPicker cp = row.get(light);
-      float[] pos = cp.getPosition();
-      stroke(255); noFill();
-      rect(pos[0] - 2, pos[1] - 2, 258, 62); 
-      noStroke();
-      fill(cp.getColorValue() | 0xff000000);
-      rect(pos[0], pos[1] + 44, 130, 15);
-      float b = cp.getArrayValue(3);
-      fill(b, b, b);
-      rect(pos[0]+130, pos[1] + 44, 125, 15);
+  if (lightsTab.isActive()) {
+    for(int electrode=0;electrode<cps.size();electrode++) {
+      ArrayList<ColorPicker> row = cps.get(electrode);
+      for(int light=0; light<row.size(); light++) {
+        ColorPicker cp = row.get(light);
+        float[] pos = cp.getPosition();
+        stroke(255); noFill();
+        rect(pos[0] - 2, pos[1] - 2, 258, 62);
+        noStroke();
+        fill(cp.getColorValue() | 0xff000000);
+        rect(pos[0], pos[1] + 44, 130, 15);
+        float b = cp.getArrayValue(3);
+        fill(b, b, b);
+        rect(pos[0]+130, pos[1] + 44, 125, 15);
+      }
     }
   }
 }

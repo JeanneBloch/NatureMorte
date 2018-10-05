@@ -13,7 +13,7 @@ RF24 radio(7, 8);
 byte addresses[][6] = {"1Node", "2Node"};
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   printf_begin();
 
   radio.begin();

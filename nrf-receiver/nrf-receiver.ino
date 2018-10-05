@@ -38,7 +38,7 @@ void setup() {
 
 void loop() {
 
-#define NSAMPLES 256
+#define NSAMPLES 8
 
   static long last_micros = micros();
   static long samples[NSAMPLES] = {0};
@@ -64,8 +64,8 @@ void loop() {
     long time_since_last = now - last_micros;
     last_micros = now;
 
-    sample_total = sample_total - samples[sample_idx] + time_since_last;
-    samples[sample_idx] = time_since_last;
+    sample_total = sample_total - samples[sample_idx] + got_sensor;
+    samples[sample_idx] = got_sensor;
     sample_idx = (sample_idx + 1) & (NSAMPLES - 1);
 
     Serial.print(1024);
@@ -76,11 +76,21 @@ void loop() {
 
     /*Serial.print(time_since_last);
     Serial.print(" ");*/
-    
+    /*
     Serial.print(batch_size * 100);
-    Serial.println(" ");
+    Serial.print(" ");*/
 
-    //Serial.println(sample_total / NSAMPLES);
+    int sample_min = 1024, sample_max = 0;
+    for(int i=0; i<NSAMPLES; i++) {
+      int s = samples[i];
+      if(s < sample_min) sample_min = s;
+      if(s > sample_max) sample_max = s;
+    }
+
+    Serial.print(10*(sample_max - sample_min) + 100);
+    Serial.print(" ");
+
+    Serial.println(sample_total / NSAMPLES + 200);
   }
 }
 

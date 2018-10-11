@@ -1,6 +1,7 @@
 #include <SPI.h>
 #include "RF24.h"
-#include "printf.h"
+
+#define LED 2
 
 #if ARDUINO_AVR_MEGA2560
 RF24 radio(49, 48);
@@ -8,13 +9,8 @@ RF24 radio(49, 48);
 RF24 radio(7, 8);
 #endif
 
-#define LED 2
-
-byte addresses[][6] = {"1Node", "2Node"};
-
-void setup() {
-  Serial.begin(9600);
-  printf_begin();
+void radio_init() {
+  const byte addresses[][6] = {"1Node", "2Node"};
 
   radio.begin();
 
@@ -32,6 +28,12 @@ void setup() {
   radio.startListening();
 
   Serial.println(F("Now receiving"));
+}
+
+void setup() {
+  Serial.begin(9600);
+
+  radio_init();
 
   pinMode(LED, OUTPUT);
 }

@@ -2,6 +2,7 @@
 #include <EEPROM.h>
 #include "Adafruit_MPR121.h"
 #include <Adafruit_NeoPixel.h>
+#include "printf.h"
 
 #ifdef ARDUINO_AVR_UNO
 #define HAS_MPR121 0
@@ -119,6 +120,8 @@ void setup() {
   while (!Serial) { // needed to keep leonardo/micro from starting too fast!
     delay(10);
   }
+
+  printf_begin();
 
   Serial.println(F("Starting up..."));
 

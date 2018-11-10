@@ -32,6 +32,7 @@ void radio_init() {
 
 void setup() {
   Serial.begin(9600);
+  printf_begin();
 
   radio_init();
 

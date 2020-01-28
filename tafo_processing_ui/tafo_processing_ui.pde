@@ -1,5 +1,13 @@
 import processing.serial.*;
 import controlP5.*;
+import http.requests.*;
+
+// [BREAKING] Added the http.requests dependency.
+// https://github.com/runemadsen/HTTP-Requests-for-Processing
+//
+// Can use UDP for better "performance".
+//
+//
 
 ControlP5 cp5;
 
@@ -33,7 +41,6 @@ void setup() {
                       .moveTo("lights");
                       ;
 
-    
     ArrayList<ColorPicker> row = new ArrayList<ColorPicker>();
     cps.add(row);
     for(int light=0;light<2;light++) {
@@ -45,7 +52,7 @@ void setup() {
       row.add(cp);
     }
   }
-  
+
   consoleTextarea = cp5.addTextarea("console")
                   .setPosition(10, 500)
                   .setSize(width-20, height-500-10)
@@ -59,7 +66,7 @@ void setup() {
 
   console = cp5.addConsole(consoleTextarea);
   console.setMax(1000);
-  
+
   String[] serialPorts = Serial.list();
   String arduinoPortName = null;
   for(int i=0; i<serialPorts.length; i++) {
@@ -67,21 +74,22 @@ void setup() {
       arduinoPortName = serialPorts[i];
     }
   }
-  
+
   if (arduinoPortName == null) {
     println("Arduino serial port not found!");
   } else {
     println("Arduino found on " + arduinoPortName);
-    
-    arduinoPort = new Serial(this, arduinoPortName, 9600);
+
+    // [note] baudrate for updated firmware.
+    arduinoPort = new Serial(this, arduinoPortName, 115200);
   }
-  
+
   frameRate(30);
 }
 
 void draw() {
   background(30, 30, 90);
-  
+
   cp5.draw();
 
   if (lightsTab.isActive()) {
@@ -105,7 +113,7 @@ void draw() {
 
 public void controlEvent(ControlEvent c) {
   if (!state.equals("InitDone")) return;
-  
+
   for(int electrode=0;electrode<cps.size();electrode++) {
     ArrayList<ColorPicker> row = cps.get(electrode);
     for(int light=0; light<row.size(); light++) {
@@ -144,7 +152,39 @@ void serialEvent(Serial port) {
 
 String state = "Init";
 
+void espTurnOn() {
+  // Can use mdns addresses, but static IP is better.
+  // Details about the API calls:
+  //
+  // https://github.com/Aircoookie/WLED/wiki/HTTP-request-API
+  //
+  // Note that we only send the reaquest, the contents are not important.
+  //
+  // I'm not familiar with this, but since processing is Java, I guess the
+  // garbage collector will clean up the req object?
+  GetRequest req = new GetRequest("http://192.168.0.103/win&T=1");
+  req.send();
+}
+
+void espTurnOff() {
+  GetRequest req = new GetRequest("http://192.168.0.103/win&T=0");
+  req.send();
+}
+
+
 void handleLineFromArduino(String lineIn) {
+  // To avoid breaking rest of the serial commands, I decided to make the check
+  // right here. Not pretty, but works.
+  //
+  // It can definitely use some debouncing.
+  //
+  if (lineIn.equals("E.TSTR!")) {
+    espTurnOn();
+  }
+  if (lineIn.equals("E.TEND!")) {
+    espTurnOff();
+  }
+
   if (state.equals("Init") || state.equals("InitDone")) {
     if (lineIn.equals("Ready")) {
       sendLineToArduino("Q");

@@ -139,7 +139,7 @@ void setup() {
   Serial.println(F("MPR121 found!"));
 #endif
 
-  radio_init();
+  //radio_init();
 
   pixels1.begin();
   pixels2.begin();
@@ -344,7 +344,7 @@ void loop() {
     //Serial.print("\t");
   }
 
-  change(NUMELECTRODES - 1, radio_read());
+//  change(NUMELECTRODES - 1, radio_read());
   //Serial.println();
 #endif
 

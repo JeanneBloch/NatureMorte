@@ -7,44 +7,51 @@ Textarea consoleTextarea;
 
 Println console;
 
-ArrayList<ArrayList<ColorPicker>> cps = new ArrayList<ArrayList<ColorPicker>>();
+ArrayList<ArrayList<ColorPicker>> pickersPerLight = new ArrayList<ArrayList<ColorPicker>>();
 Serial arduinoPort;
 
-Tab lightsTab, sensorsTab;
+ArrayList<Tab> lightsTabs = new ArrayList<Tab>();
+
+int LIGHT_COUNT = 5;
+int ELECTRODE_COUNT = 12;
 
 void setup() {
-  size(1240, 600);
+  size(700, 600);
   noStroke();
   cp5 = new ControlP5(this);
   cp5.setAutoDraw(false);
 
-  lightsTab = cp5.addTab("lights").setActive(true);
-  sensorsTab = cp5.addTab("sensors");
   cp5.getTab("default").hide();
-
-  for(int electrode=0; electrode<12; electrode++) {
-    float x = 620 * (electrode / 6);
-    float y = 20 + 80 * (electrode % 6);
-    cp5.addTextlabel("label" + electrode)
-                      .setText(electrode + "")
-                      .setPosition(x + 10, y+15)
-                      .setColorValue(0xffffff00)
-                      .setFont(createFont("Monaco",20))
-                      .moveTo("lights");
-                      ;
-
+  for(int light = 0; light < LIGHT_COUNT; light++) {
+    String currentTab = "light" + (light + 1);
+    Tab lightsTab = cp5.addTab(currentTab);
     
-    ArrayList<ColorPicker> row = new ArrayList<ColorPicker>();
-    cps.add(row);
-    for(int light=0;light<2;light++) {
+    ArrayList<ColorPicker> pickers = new ArrayList<ColorPicker>();
+  
+    for(int electrode=0; electrode<ELECTRODE_COUNT; electrode++) {
+      float x = 320 * (electrode / 6);
+      float y = 20 + 80 * (electrode % 6);
+      cp5.addTextlabel("label." + light + "." + electrode)
+                        .setText(electrode + "")
+                        .setPosition(x + 10, y+15)
+                        .setColorValue(0xffffff00)
+                        .setFont(createFont("Monaco",20))
+                        .moveTo(currentTab);
+                        ;
+  
+  
       ColorPicker cp = cp5.addColorPicker("picker" + electrode + "." + light)
-              .setPosition(x + 50 + 300 * light, y)
+              .setPosition(x + 50, y)
               .setWidth(100)
               .setColorValue(color(255, 128, 0, 128))
-              .moveTo("lights");
-      row.add(cp);
+              .moveTo(currentTab);
+      pickers.add(cp);
     }
+    pickersPerLight.add(pickers);
+    lightsTabs.add(lightsTab);
   }
+  
+  lightsTabs.get(0).setActive(true);
   
   consoleTextarea = cp5.addTextarea("console")
                   .setPosition(10, 500)
@@ -84,11 +91,12 @@ void draw() {
   
   cp5.draw();
 
-  if (lightsTab.isActive()) {
-    for(int electrode=0;electrode<cps.size();electrode++) {
-      ArrayList<ColorPicker> row = cps.get(electrode);
-      for(int light=0; light<row.size(); light++) {
-        ColorPicker cp = row.get(light);
+  for(int light = 0; light < LIGHT_COUNT; light++) {
+    if (lightsTabs.get(light).isActive()) {
+      ArrayList<ColorPicker> pickers = pickersPerLight.get(light);
+
+      for(int electrode=0;electrode<ELECTRODE_COUNT;electrode++) {
+        ColorPicker cp = pickers.get(electrode);
         float[] pos = cp.getPosition();
         stroke(255); noFill();
         rect(pos[0] - 2, pos[1] - 2, 258, 62);
@@ -106,10 +114,10 @@ void draw() {
 public void controlEvent(ControlEvent c) {
   if (!state.equals("InitDone")) return;
   
-  for(int electrode=0;electrode<cps.size();electrode++) {
-    ArrayList<ColorPicker> row = cps.get(electrode);
-    for(int light=0; light<row.size(); light++) {
-      ColorPicker cp = row.get(light);
+  for(int light = 0; light < LIGHT_COUNT; light++) {
+    ArrayList<ColorPicker> pickers = pickersPerLight.get(light);
+    for(int electrode=0;electrode < ELECTRODE_COUNT;electrode++) {
+      ColorPicker cp = pickers.get(electrode);
       if(c.isFrom(cp)) {
         int r = int(c.getArrayValue(0));
         int g = int(c.getArrayValue(1));
@@ -163,11 +171,11 @@ void handleLineFromArduino(String lineIn) {
         values[1] = Integer.parseInt(words[3]);
         values[2] = Integer.parseInt(words[4]);
         values[3] = Integer.parseInt(words[5]);
-        if (light >=0 && light < 2
-            && electrode >= 0 && electrode < 12) {
-          cps.get(electrode).get(light).setArrayValue(values);
+        if (light >=0 && light < LIGHT_COUNT
+            && electrode >= 0 && electrode < ELECTRODE_COUNT) {
+          pickersPerLight.get(light).get(electrode).setArrayValue(values);
         }
-        if (electrode == 11 && light == 1) {
+        if (electrode == ELECTRODE_COUNT-1 && light == LIGHT_COUNT-1) {
           state = "InitDone";
         }
       } catch (Exception e) {

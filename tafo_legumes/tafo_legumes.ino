@@ -10,19 +10,28 @@
 #define HAS_MPR121 1
 #endif
 
-// Which pin on the Arduino is connected to the NeoPixels?
-#define PIXELS1_PIN            23
-#define PIXELS2_PIN            25
-
 // How many NeoPixels are attached to the Arduino?
 #define NUMPIXELS      8
 
-#define NUMLIGHTS      2
+#define NUMLIGHTS      5
 
 #define NUMELECTRODES 12
 
-Adafruit_NeoPixel pixels1 = Adafruit_NeoPixel(NUMPIXELS, PIXELS1_PIN, NEO_GRBW + NEO_KHZ800);
-Adafruit_NeoPixel pixels2 = Adafruit_NeoPixel(NUMPIXELS, PIXELS2_PIN, NEO_GRBW + NEO_KHZ800);
+
+// Which pin on the Arduino is connected to the NeoPixels?
+#define PIXELS1_PIN            23
+#define PIXELS2_PIN            25
+#define PIXELS3_PIN            27
+#define PIXELS4_PIN            29
+#define PIXELS5_PIN            31
+
+Adafruit_NeoPixel lights[NUMLIGHTS] = {
+  Adafruit_NeoPixel(NUMPIXELS, PIXELS1_PIN, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(NUMPIXELS, PIXELS2_PIN, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(NUMPIXELS, PIXELS3_PIN, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(NUMPIXELS, PIXELS4_PIN, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(NUMPIXELS, PIXELS5_PIN, NEO_GRBW + NEO_KHZ800),
+};
 
 const byte neopix_gamma[] = {
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -141,8 +150,9 @@ void setup() {
 
   //radio_init();
 
-  pixels1.begin();
-  pixels2.begin();
+  for(int i=0; i<NUMLIGHTS; i++) {
+    lights[i].begin();
+  }
 
   Serial.println(F("Ready"));
 }
@@ -314,6 +324,21 @@ void processCommand() {
       configDirty = true;
       break;
     }
+    case 'R': {
+      if(cmdwords_count != 2) {
+        Serial.println(F("ERR usage: R 1"));
+        break;
+      }
+
+      Serial.println(F("OK Clearing config"));
+      for(int numLight = 0; numLight < NUMLIGHTS; numLight++) {
+        for(int numElectrode = 0; numElectrode < NUMELECTRODES; numElectrode++) {
+          config.targetColors[numLight][numElectrode] = Adafruit_NeoPixel::Color(0, 0, 0, 0);
+        }
+      }
+      configDirty = true;
+      break;
+    }
     default:
       Serial.print("ERR Unknown command ");
       Serial.println(cmdwords[0]);
@@ -329,15 +354,19 @@ void loop() {
   for (uint8_t i=0; i<NUMELECTRODES; i++) {
     // it if *is* touched and *wasnt* touched before, alert!
     if ((currtouched & _BV(i)) && !(lasttouched & _BV(i)) ) {
-      //Serial.print(i); Serial.println(" touched");
+      Serial.print(F("INFO electrode "));
+      Serial.print(i);
+      Serial.println(F(" touched"));
     }
     // if it *was* touched and now *isnt*, alert!
     if (!(currtouched & _BV(i)) && (lasttouched & _BV(i)) ) {
-      //Serial.print(i); Serial.println(" released");
+      Serial.print(F("INFO electrode "));
+      Serial.print(i);
+      Serial.println(F(" released"));
     }
   }
 
-  for (uint8_t electrodeIndex=0; electrodeIndex<NUMELECTRODES-1; electrodeIndex++) {
+  for (uint8_t electrodeIndex=0; electrodeIndex<NUMELECTRODES; electrodeIndex++) {
     change(electrodeIndex, currtouched & _BV(electrodeIndex));
 
     //Serial.print(saturation[electrodeIndex]);
@@ -348,8 +377,9 @@ void loop() {
   //Serial.println();
 #endif
 
-  show(pixels1, config.targetColors[0]);
-  show(pixels2, config.targetColors[1]);
+  for(int i=0; i<NUMLIGHTS; i++) {
+    show(lights[i], config.targetColors[i]);
+  }
 
   processSerialInput();
 

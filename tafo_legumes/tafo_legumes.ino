@@ -2,7 +2,7 @@
 #include <EEPROM.h>
 #include "Adafruit_MPR121.h"
 #include <Adafruit_NeoPixel.h>
-#include "printf.h"   // [!note] printf.h is from Rf24 library, even if we dont use it.
+#include "printf.h"
 
 #ifdef ARDUINO_AVR_UNO
 #define HAS_MPR121 0
@@ -13,9 +13,6 @@
 // Which pin on the Arduino is connected to the NeoPixels?
 #define PIXELS1_PIN            23
 #define PIXELS2_PIN            25
-
-// The relay_pin was used as a bad, bad hack.
-#define RELAY_PIN              48
 
 // How many NeoPixels are attached to the Arduino?
 #define NUMPIXELS      8
@@ -118,15 +115,7 @@ void saveConfig() {
 }
 
 void setup() {
-  // Changed the baudrate just because.
-  Serial.begin(115200);
-  // A tiny "sanity check" for relay. [HACK]
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);
-  delay(500);
-  digitalWrite(RELAY_PIN, HIGH);
-  delay(500);
-  digitalWrite(RELAY_PIN, LOW);
+  Serial.begin(9600);
 
   while (!Serial) { // needed to keep leonardo/micro from starting too fast!
     delay(10);
@@ -340,21 +329,10 @@ void loop() {
   for (uint8_t i=0; i<NUMELECTRODES; i++) {
     // it if *is* touched and *wasnt* touched before, alert!
     if ((currtouched & _BV(i)) && !(lasttouched & _BV(i)) ) {
-      // [PS] [!HACK] Send "Event" over serial.
-      //
-      // E.TSTR == Event.Touch-Start
-      // E.TEND == Event.Touch-End
-      //
-      // Also, maybe this can be moved out of the loop? I guess #[!todo]
-      Serial.println("E.TSTR!");
-      digitalWrite(RELAY_PIN, HIGH);
-
       //Serial.print(i); Serial.println(" touched");
     }
     // if it *was* touched and now *isnt*, alert!
     if (!(currtouched & _BV(i)) && (lasttouched & _BV(i)) ) {
-      Serial.println("E.TEND!");
-      digitalWrite(RELAY_PIN, LOW);
       //Serial.print(i); Serial.println(" released");
     }
   }
@@ -366,8 +344,7 @@ void loop() {
     //Serial.print("\t");
   }
 
-  // Make sure that we've disabled radio_read since it randomly blocks the loop.
-  //change(NUMELECTRODES - 1, radio_read());
+  change(NUMELECTRODES - 1, radio_read());
   //Serial.println();
 #endif
 
